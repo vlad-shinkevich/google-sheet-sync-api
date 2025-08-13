@@ -1,6 +1,6 @@
 import { NextResponse } from "next/server";
 import { withCors, preflight } from "@/lib/cors";
-import { getSession, deleteSession } from "@/lib/store";
+import { getSession, deleteSession, saveResult } from "@/lib/store";
 
 export async function OPTIONS(request: Request) {
   return preflight(request) ?? withCors(new NextResponse(null, { status: 204 }), request);
@@ -63,8 +63,15 @@ export async function GET(request: Request) {
 
   // Option 1: return tokens directly to the plugin (short-lived in-memory session)
   // Option 2: persist securely and return a reference. For now, return directly.
+  // Save result for polling by the plugin UI
+  saveResult(sessionId, { tokens: tokenJson as Record<string, unknown>, redirectTo: session.redirectTo });
   deleteSession(sessionId);
-  const res = NextResponse.json({ ok: true, tokens: tokenJson, redirectTo: session.redirectTo });
+
+  // Return minimal HTML page that can be safely opened in a browser window
+  const html = `<!DOCTYPE html><html><head><meta charset="utf-8"/><title>Success</title></head><body>
+  <p>Authentication complete. You can close this window.</p>
+  </body></html>`;
+  const res = new NextResponse(html, { status: 200, headers: { "Content-Type": "text/html; charset=utf-8" } });
   return withCors(res, request);
 }
 

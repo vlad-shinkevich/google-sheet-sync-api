@@ -18,7 +18,11 @@ export async function GET(request: Request) {
 
   const clientId = process.env.GOOGLE_CLIENT_ID;
   const redirectUri = process.env.GOOGLE_REDIRECT_URI;
-  const scope = process.env.GOOGLE_SCOPE ?? "https://www.googleapis.com/auth/spreadsheets.readonly";
+  const defaultScopes = [
+    "https://www.googleapis.com/auth/spreadsheets.readonly",
+    "https://www.googleapis.com/auth/drive.readonly",
+  ];
+  const scope = process.env.GOOGLE_SCOPE ?? defaultScopes.join(" ");
 
   if (!clientId || !redirectUri) {
     const res = NextResponse.json({ error: "Server not configured" }, { status: 500 });

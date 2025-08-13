@@ -1,6 +1,6 @@
 import { NextResponse } from "next/server";
 import { withCors, preflight } from "@/lib/cors";
-import { getSession, hasResult, takeResult } from "@/lib/store";
+import { takeResult, OAuthResult } from "@/lib/store";
 
 export async function OPTIONS(request: Request) {
   return preflight(request) ?? withCors(new NextResponse(null, { status: 204 }), request);
@@ -13,17 +13,13 @@ export async function GET(request: Request) {
     const res = NextResponse.json({ error: "Missing sessionId" }, { status: 400 });
     return withCors(res, request);
   }
-  const session = getSession(sessionId);
-  if (!session) {
-    const res = NextResponse.json({ exists: false });
+  const result = takeResult(sessionId);
+  if (!result) {
+    const res = NextResponse.json({ error: "No result" }, { status: 404 });
     return withCors(res, request);
   }
-  if (hasResult(sessionId)) {
-    const result = takeResult(sessionId);
-    const res = NextResponse.json({ exists: true, done: true, result });
-    return withCors(res, request);
-  }
-  const res = NextResponse.json({ exists: true, done: false });
+  const payload: OAuthResult & { ok: true } = { ok: true, ...result };
+  const res = NextResponse.json(payload);
   return withCors(res, request);
 }
 
