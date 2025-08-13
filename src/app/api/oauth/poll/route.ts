@@ -13,14 +13,15 @@ export async function GET(request: Request) {
     const res = NextResponse.json({ error: "Missing sessionId" }, { status: 400 });
     return withCors(res, request);
   }
-  const session = getSession(sessionId);
-  if (!session) {
-    const res = NextResponse.json({ exists: false });
-    return withCors(res, request);
-  }
+  // Return saved result as soon as it exists, regardless of session presence
   if (hasResult(sessionId)) {
     const result = takeResult(sessionId);
     const res = NextResponse.json({ exists: true, done: true, result });
+    return withCors(res, request);
+  }
+  const session = getSession(sessionId);
+  if (!session) {
+    const res = NextResponse.json({ exists: false });
     return withCors(res, request);
   }
   const res = NextResponse.json({ exists: true, done: false });
