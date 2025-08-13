@@ -4,6 +4,8 @@ const DEFAULT_ALLOWED_ORIGINS = [
   "http://localhost:3000",
   "http://127.0.0.1:3000",
   "https://www.figma.com",
+  // Figma plugin worker/iframe can send Origin: null. Allow literal "null".
+  "null",
 ];
 
 export function getAllowedOrigins(): string[] {
@@ -12,9 +14,22 @@ export function getAllowedOrigins(): string[] {
 }
 
 export function withCors(response: NextResponse, request: Request): NextResponse {
-  const origin = request.headers.get("origin");
+  const originHeader = request.headers.get("origin");
+  const originCandidate = originHeader ?? "null";
   const allowed = getAllowedOrigins();
-  const allowOrigin = origin && allowed.includes(origin) ? origin : allowed[0] ?? "*";
+
+  let allowOrigin = "*";
+  let allowCredentials = true;
+
+  if (allowed.includes(originCandidate)) {
+    allowOrigin = originCandidate;
+  } else if (allowed.includes("*")) {
+    allowOrigin = "*";
+    allowCredentials = false; // cannot use credentials with wildcard
+  } else if (allowed.length > 0) {
+    allowOrigin = allowed[0];
+    if (allowOrigin === "*") allowCredentials = false;
+  }
 
   response.headers.set("Access-Control-Allow-Origin", allowOrigin);
   response.headers.set("Vary", "Origin");
@@ -26,7 +41,7 @@ export function withCors(response: NextResponse, request: Request): NextResponse
     "Access-Control-Allow-Methods",
     request.headers.get("access-control-request-method") || "GET, POST, OPTIONS"
   );
-  response.headers.set("Access-Control-Allow-Credentials", "true");
+  if (allowCredentials) response.headers.set("Access-Control-Allow-Credentials", "true");
   return response;
 }
 
