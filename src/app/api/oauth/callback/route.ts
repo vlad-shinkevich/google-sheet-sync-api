@@ -23,7 +23,7 @@ export async function GET(request: Request) {
   }
 
   const [sessionId, state] = stateParam.split(":");
-  const session = sessionId ? getSession(sessionId) : undefined;
+  const session = sessionId ? await getSession(sessionId) : undefined;
   if (!session || session.state !== state) {
     const res = NextResponse.json({ error: "Invalid state" }, { status: 400 });
     return withCors(res, request);
@@ -82,8 +82,8 @@ export async function GET(request: Request) {
   // Option 1: return tokens directly to the plugin (short-lived in-memory session)
   // Option 2: persist securely and return a reference. For now, return directly.
   // Save result for polling by the plugin UI
-  saveResult(sessionId, { tokens: tokenJson as Record<string, unknown>, redirectTo: session.redirectTo, userinfo });
-  deleteSession(sessionId);
+  await saveResult(sessionId, { tokens: tokenJson as Record<string, unknown>, redirectTo: session.redirectTo, userinfo });
+  await deleteSession(sessionId);
 
   // Return minimal HTML page that can be safely opened in a browser window
   const html = `<!DOCTYPE html><html><head><meta charset="utf-8"/><title>Success</title></head><body>

@@ -38,7 +38,7 @@ export async function GET(request: Request) {
   const codeVerifier = await generateCodeVerifier();
   const codeChallenge = await generateCodeChallenge(codeVerifier);
 
-  saveSession(sessionId, {
+  await saveSession(sessionId, {
     state,
     codeVerifier,
     createdAt: Date.now(),

@@ -14,12 +14,12 @@ export async function GET(request: Request) {
     return withCors(res, request);
   }
   // Return saved result as soon as it exists, regardless of session presence
-  if (hasResult(sessionId)) {
-    const result = takeResult(sessionId);
+  if (await hasResult(sessionId)) {
+    const result = await takeResult(sessionId);
     const res = NextResponse.json({ exists: true, done: true, result });
     return withCors(res, request);
   }
-  const session = getSession(sessionId);
+  const session = await getSession(sessionId);
   if (!session) {
     const res = NextResponse.json({ exists: false });
     return withCors(res, request);

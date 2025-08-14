@@ -11,53 +11,74 @@ export type OAuthResult = {
   redirectTo?: string;
   userinfo?: Record<string, unknown>;
 };
+import { kv as vercelKv } from "@vercel/kv";
 
-const memory = new Map<string, AuthSession>();
-const results = new Map<string, OAuthResult>();
+const memorySessions = new Map<string, AuthSession>();
+const memoryResults = new Map<string, OAuthResult>();
 
-export function saveSession(sessionId: string, session: AuthSession): void {
-  memory.set(sessionId, session);
+const SESSION_PREFIX = "session:";
+const RESULT_PREFIX = "result:";
+const TTL_SECONDS = 10 * 60; // 10 minutes
+
+function kvAvailable(): boolean {
+  return Boolean(process.env.KV_REST_API_URL && process.env.KV_REST_API_TOKEN);
 }
 
-export function getSession(sessionId: string): AuthSession | undefined {
-  return memory.get(sessionId);
-}
-
-export function deleteSession(sessionId: string): void {
-  memory.delete(sessionId);
-}
-
-export function saveResult(sessionId: string, value: OAuthResult): void {
-  results.set(sessionId, value);
-}
-
-export function hasResult(sessionId: string): boolean {
-  return results.has(sessionId);
-}
-
-export function takeResult(sessionId: string): OAuthResult | undefined {
-  const value = results.get(sessionId);
-  if (value !== undefined) {
-    results.delete(sessionId);
+export async function saveSession(sessionId: string, session: AuthSession): Promise<void> {
+  if (kvAvailable()) {
+    await vercelKv.set(`${SESSION_PREFIX}${sessionId}`, session, { ex: TTL_SECONDS });
+  } else {
+    memorySessions.set(sessionId, session);
   }
-  return value;
 }
 
-// Basic sweeper for long-lived processes (Vercel functions are short-lived typically)
-const TTL_MS = 10 * 60 * 1000;
-setInterval(() => {
-  const now = Date.now();
-  for (const [key, value] of memory.entries()) {
-    if (now - value.createdAt > TTL_MS) memory.delete(key);
+export async function getSession(sessionId: string): Promise<AuthSession | undefined> {
+  if (kvAvailable()) {
+    const value = await vercelKv.get<AuthSession>(`${SESSION_PREFIX}${sessionId}`);
+    return value ?? undefined;
   }
-  for (const [key] of results.entries()) {
-    // Simple TTL for results as well
-    // If there is no matching session, or if session is older than TTL, drop the result
-    const session = memory.get(key);
-    if (!session || now - session.createdAt > TTL_MS) {
-      results.delete(key);
+  return memorySessions.get(sessionId);
+}
+
+export async function deleteSession(sessionId: string): Promise<void> {
+  if (kvAvailable()) {
+    await vercelKv.del(`${SESSION_PREFIX}${sessionId}`);
+  } else {
+    memorySessions.delete(sessionId);
+  }
+}
+
+export async function saveResult(sessionId: string, value: OAuthResult): Promise<void> {
+  if (kvAvailable()) {
+    await vercelKv.set(`${RESULT_PREFIX}${sessionId}`, value, { ex: TTL_SECONDS });
+  } else {
+    memoryResults.set(sessionId, value);
+  }
+}
+
+export async function hasResult(sessionId: string): Promise<boolean> {
+  if (kvAvailable()) {
+    try {
+      const exists = await vercelKv.exists(`${RESULT_PREFIX}${sessionId}`);
+      return Boolean(exists);
+    } catch {
+      const v = await vercelKv.get(`${RESULT_PREFIX}${sessionId}`);
+      return v != null;
     }
   }
-}, 60 * 1000).unref?.();
+  return memoryResults.has(sessionId);
+}
+
+export async function takeResult(sessionId: string): Promise<OAuthResult | undefined> {
+  if (kvAvailable()) {
+    const key = `${RESULT_PREFIX}${sessionId}`;
+    const value = await vercelKv.get<OAuthResult>(key);
+    if (value != null) await vercelKv.del(key);
+    return value ?? undefined;
+  }
+  const value = memoryResults.get(sessionId);
+  if (value !== undefined) memoryResults.delete(sessionId);
+  return value;
+}
 
 

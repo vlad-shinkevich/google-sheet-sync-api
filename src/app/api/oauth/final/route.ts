@@ -13,7 +13,7 @@ export async function GET(request: Request) {
     const res = NextResponse.json({ error: "Missing sessionId" }, { status: 400 });
     return withCors(res, request);
   }
-  const result = takeResult(sessionId);
+  const result = await takeResult(sessionId);
   if (!result) {
     const res = NextResponse.json({ error: "No result" }, { status: 404 });
     return withCors(res, request);
