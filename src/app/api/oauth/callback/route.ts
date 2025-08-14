@@ -61,10 +61,28 @@ export async function GET(request: Request) {
 
   const tokenJson = await tokenRes.json();
 
+  // If OIDC scopes are present, fetch userinfo
+  let userinfo: Record<string, unknown> | undefined;
+  try {
+    const accessToken = tokenJson.access_token as string | undefined;
+    if (accessToken) {
+      const uiRes = await fetch("https://openidconnect.googleapis.com/v1/userinfo", {
+        headers: { Authorization: `Bearer ${accessToken}` },
+        // Keep it simple; if it fails, we just skip userinfo
+        cache: "no-store",
+      });
+      if (uiRes.ok) {
+        userinfo = await uiRes.json();
+      }
+    }
+  } catch {
+    // ignore userinfo failures
+  }
+
   // Option 1: return tokens directly to the plugin (short-lived in-memory session)
   // Option 2: persist securely and return a reference. For now, return directly.
   // Save result for polling by the plugin UI
-  saveResult(sessionId, { tokens: tokenJson as Record<string, unknown>, redirectTo: session.redirectTo });
+  saveResult(sessionId, { tokens: tokenJson as Record<string, unknown>, redirectTo: session.redirectTo, userinfo });
   deleteSession(sessionId);
 
   // Return minimal HTML page that can be safely opened in a browser window

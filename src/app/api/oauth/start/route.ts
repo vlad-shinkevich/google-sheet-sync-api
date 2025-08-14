@@ -21,6 +21,10 @@ export async function GET(request: Request) {
   const defaultScopes = [
     "https://www.googleapis.com/auth/spreadsheets.readonly",
     "https://www.googleapis.com/auth/drive.readonly",
+    // OIDC scopes for user identity in frontend
+    "openid",
+    "email",
+    "profile",
   ];
   const scope = process.env.GOOGLE_SCOPE ?? defaultScopes.join(" ");
 

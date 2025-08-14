@@ -9,6 +9,7 @@ type AuthSession = {
 export type OAuthResult = {
   tokens: Record<string, unknown>;
   redirectTo?: string;
+  userinfo?: Record<string, unknown>;
 };
 
 const memory = new Map<string, AuthSession>();
